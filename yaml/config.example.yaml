@@ -1,0 +1,35 @@
+﻿# Copy this file to `pokemon/yaml/config.yaml` and fill in real values.
+# Missing required credentials or API keys will prevent the bot from starting.
+
+showdown:
+  # Required: the Pokemon Showdown username the bot should log in with.
+  username: your_showdown_username
+  # Required: the password for the Showdown account above.
+  password: your_showdown_password
+
+battle:
+  # Optional: battle format used by the agent.
+  # Examples: gen9randombattle, gen9ou, gen9monotype
+  format: gen9randombattle
+
+matchmaking:
+  # Optional: how the bot looks for games.
+  # Supported options:
+  #   accept    - wait for another user to challenge the bot account
+  #   ladder    - actively queue for random Showdown ladder games
+  #   challenge - actively challenge one specific Showdown username
+  mode: ladder
+  # Optional: only used when mode=challenge.
+  challenge_target_username:
+  # Optional: how many games/challenges to launch in one activation cycle.
+  # Keep this at 1 unless you redesign the app for multiple concurrent battles.
+  matches_per_activation: 1
+
+openai:
+  # Required: API key for the LLM battle agent.
+  api_key: your_openai_api_key
+  # Optional: model name sent to the OpenAI-compatible endpoint.
+  model: gpt-5.2
+  # Optional: base URL for the OpenAI-compatible API provider.
+  base_url: https://right.codes/codex/v1
+

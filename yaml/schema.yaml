@@ -1,0 +1,76 @@
+{
+  "standard_tools": {
+    "choose_move": {
+      "name": "choose_move",
+      "description": "Selects and executes an available attacking or status move.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "move_name": {
+            "type": "string",
+            "description": "The exact name or ID (e.g., 'thunderbolt', 'swordsdance') of the move to use. Must be one of the available moves."
+          }
+        },
+        "required": ["move_name"]
+      }
+    },
+    "choose_switch": {
+      "name": "choose_switch",
+      "description": "Selects an available Pokémon from the bench to switch into.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "pokemon_name": {
+            "type": "string",
+            "description": "The exact name of the Pokémon species to switch to (e.g., 'Pikachu', 'Charizard'). Must be one of the available switches."
+          }
+        },
+        "required": ["pokemon_name"]
+      }
+    }
+  },
+  "openai_tools": {
+    "choose_move": {
+      "type": "function",
+      "function": {
+        "name": "choose_move",
+        "description": "Selects and executes an available attacking or status move.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "move_name": {
+              "type": "string",
+              "description": "The exact name or ID (e.g., 'thunderbolt', 'swordsdance') of the move to use. Must be one of the available moves."
+            }
+          },
+          "required": ["move_name"]
+        }
+      }
+    },
+    "choose_switch": {
+      "type": "function",
+      "function": {
+        "name": "choose_switch",
+        "description": "Selects an available Pokémon from the bench to switch into.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "pokemon_name": {
+              "type": "string",
+              "description": "The exact name of the Pokémon species to switch to (e.g., 'Pikachu', 'Charizard'). Must be one of the available switches."
+            }
+          },
+          "required": ["pokemon_name"]
+        }
+      }
+    }
+  },
+  "prompts": {
+    "system": "You are a skilled Pokemon battle AI. Your goal is to win the battle. Based on the current battle state, decide the best action: either use an available move or switch to an available Pokémon. Consider type matchups, HP, status conditions, field effects, entry hazards, and potential opponent actions. Only choose actions listed as available using their exact ID (for moves) or species name (for switches). Use the provided functions to indicate your choice.",
+    "user_template": "Current Battle State:\n{battle_state}\n\nChoose the best action by calling the appropriate function ('choose_move' or 'choose_switch')."
+  },
+  "generation": {
+    "tool_choice": "auto",
+    "temperature": 0.5
+  }
+}
