@@ -1,15 +1,12 @@
-﻿import html
-import os
-import traceback
+﻿import os
 
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 
-def create_battle_iframe(battle_id: str) -> str:
+def create_battle_iframe(battle_url: str) -> str:
     """Creates JUST the HTML for the battle iframe tag."""
-    print("Creating iframe content for battle ID: ", battle_id)
-    battle_url = f"https://play.pokemonshowdown.com/{battle_id}"
+    print("Creating iframe content for battle URL: ", battle_url)
     return f"""
     <iframe
         id="battle-iframe"
@@ -39,6 +36,19 @@ def create_error_html(error_msg: str) -> str:
         <div class="message-box">
             <p class="status">馃毃 Error 馃毃</p>
             <p class="instruction">{error_msg}</p>
+        </div>
+    </div>
+    """
+
+
+def create_battle_redirect_html(battle_tag: str) -> str:
+    battle_url = f"https://play.pokemonshowdown.com/{battle_tag}"
+    return f"""
+    <div class="content-container idle-container">
+        <div class="message-box">
+            <p class="status">Battle Found!</p>
+            <p class="instruction">Opening <strong>Play Showdown</strong> battle viewer...</p>
+            <p class="instruction"><a href="{battle_url}" target="_blank" rel="noopener noreferrer">Open battle manually</a></p>
         </div>
     </div>
     """
@@ -159,6 +169,12 @@ def render_homepage() -> str:
 
                 ws.onmessage = function(event) {
                     streamContainer.innerHTML = event.data;
+                    const temp = document.createElement('div');
+                    temp.innerHTML = event.data;
+                    const battleLink = temp.querySelector('a[href^="https://play.pokemonshowdown.com/"]');
+                    if (battleLink) {
+                        window.location.href = battleLink.href;
+                    }
                 };
 
                 ws.onclose = function() {
@@ -192,86 +208,10 @@ def render_homepage() -> str:
     """
 
 
-def render_last_action_page(last_action_file: str) -> HTMLResponse:
-    file_content_raw = ""
-    error_message = None
-
-    try:
-        with open(last_action_file, "r", encoding="utf-8") as file:
-            file_content_raw = file.read()
-    except FileNotFoundError:
-        error_message = f"Log file not found: '{last_action_file}'"
-        print(f"WARN: {error_message}")
-    except Exception as e:
-        error_message = f"An unexpected error occurred while reading '{last_action_file}': {e}"
-        print(f"ERROR: {error_message}")
-        traceback.print_exc()
-
-    display_content = html.escape(file_content_raw) if not error_message else error_message
-    content_class = "error" if error_message else "log-content"
-
-    html_output = f"""
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Last Action Log</title>
-        <style>
-             @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;700&family=Press+Start+2P&display=swap');
-            * {{ box-sizing: border-box; margin: 0; padding: 0; }}
-            html, body {{ height: 100%; width: 100%; overflow: hidden; }}
-            body {{
-                font-family: 'Poppins', sans-serif;
-                line-height: 1.5;
-                padding: 15px;
-                background-color: transparent;
-                color: #FFFFFF;
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                text-align: center;
-            }}
-            .content-wrapper {{ max-width: 100%; max-height: 100%; }}
-            .log-content {{
-                font-size: 2em;
-                white-space: pre-wrap;
-                word-wrap: break-word;
-                color: #EAEAEA;
-                text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.7);
-            }}
-            .error {{
-                font-family: 'Poppins', sans-serif;
-                font-size: 1.6em;
-                color: #FFBDBD;
-                font-weight: bold;
-                background-color: rgba(100, 0, 0, 0.7);
-                border: 1px solid #FF8080;
-                padding: 10px 15px;
-                border-radius: 8px;
-                text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
-                white-space: normal;
-            }}
-        </style>
-    </head>
-    <body>
-        <div class="content-wrapper">
-             <div class="{content_class}">{display_content}</div>
-        </div>
-    </body>
-    </html>
-    """
-    return HTMLResponse(content=html_output)
-
-
-def register_page_routes(app, last_action_file: str) -> None:
+def register_page_routes(app) -> None:
     @app.get("/", response_class=HTMLResponse)
     async def get_homepage():
         return render_homepage()
-
-    @app.get("/last_action", response_class=HTMLResponse)
-    async def get_last_action_log():
-        return render_last_action_page(last_action_file)
 
 
 def ensure_static_assets(app, static_dir: str) -> None:

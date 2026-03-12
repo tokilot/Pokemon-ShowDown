@@ -2,7 +2,7 @@
 
 这是一个基于 `FastAPI`、`poke-env` 和 `OpenAI` 开发的 Pokemon Showdown 对战直播项目。
 
-项目会启动一个 Web 服务，并驱动一个 LLM Agent 登录 Pokemon Showdown 账号自动进行对战；前端页面会实时展示当前对局，`/last_action` 页面会显示最近一次动作日志，便于调试和演示。
+项目会启动一个 Web 服务，并驱动一个 LLM Agent 登录 Pokemon Showdown 账号自动进行对战；前端页面会展示待机状态，并在发现对局后引导打开 Play Showdown 观战页面。对局结束后会回到本地待机画面，同时将历史对局记录保存到 `battle_history.json`。
 
 ## 项目说明
 
@@ -29,7 +29,7 @@
 ├── utils.py                # 配置加载与日志辅助函数
 ├── requirements.txt        # Python 依赖
 ├── Dockerfile              # 容器构建文件
-├── last_action.txt         # 最近动作日志
+├── battle_history.json     # 历史对局记录
 └── yaml/
     ├── config.example.yaml # 配置模板
     ├── config.yaml         # 本地实际配置（需自行创建）
@@ -101,7 +101,6 @@ python main.py
 默认启动后服务地址为：
 
 - 首页：`http://127.0.0.1:6007/`
-- 最近动作：`http://127.0.0.1:6007/last_action`
 
 ### 使用 Uvicorn 启动
 
@@ -112,7 +111,6 @@ uvicorn main:app --host 0.0.0.0 --port 6007
 ## 页面说明
 
 - `/`：直播主页面，会通过 WebSocket 动态更新当前对战视图
-- `/last_action`：展示 `last_action.txt` 中记录的最近动作
 - `/ws`：前端使用的 WebSocket 接口
 
 ## 运行流程
@@ -136,7 +134,7 @@ docker build -t pokemon-showdown-bot .
 ## 注意事项
 
 - 实际运行前请确认 `yaml/config.yaml` 已创建并填写正确
-- `last_action.txt` 在首次启动时会自动创建
+- `battle_history.json` 在首次启动时会自动创建
 - `matches_per_activation` 建议保持为 `1`，当前实现更适合单场并发
 - 若前端页面无法显示对战内容，请先检查后端日志、Showdown 账号登录状态和 API 配置
 

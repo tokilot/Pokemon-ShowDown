@@ -1,6 +1,4 @@
 ﻿import json
-import asyncio
-import random
 from pathlib import Path
 
 # --- OpenAI ---
@@ -8,8 +6,8 @@ from openai import AsyncOpenAI, APIError
 
 # --- Poke-Env ---
 from poke_env.player import Player
-from typing import Optional, Dict, Any, Union
-from utils import POKEMON_SETTINGS, write_last_action
+from typing import Any, Dict
+from utils import POKEMON_SETTINGS
 
 # --- Helper Function & Base Class ---
 def normalize_name(name: str) -> str:
@@ -76,6 +74,20 @@ class LLMAgentBase(Player):
                     f"Opponent Side Conditions: {battle.opponent_side_conditions}"
         return state_str.strip()
 
+    def _record_battle_action(self, battle, player_action: str) -> None:
+        record = {
+            "Battle_tag": battle.battle_tag,
+            "Turn": battle.turn,
+            "Weather": battle.weather,
+            "Terrains": battle.fields,
+            "Your Side Conditions": battle.side_conditions,
+            "Opponent Side Conditions": battle.opponent_side_conditions,
+            "Opponent_last_action": "unknown",
+            "Player_action": player_action,
+            "Result": "win" if battle.won else "lost" if battle.lost else "finished" if battle.finished else "ongoing",
+        }
+        self.battle_history.append(record)
+
     def _find_move_by_name(self, battle, move_name: str):
         normalized_name = normalize_name(move_name)
         # Prioritize exact ID match
@@ -117,7 +129,7 @@ class LLMAgentBase(Player):
                         action_taken = True
                         chat_msg = f"AI Decision: Using move '{chosen_move.id}'."
                         print(chat_msg)
-                        write_last_action(chat_msg)
+                        self._record_battle_action(battle, f"move:{chosen_move.id}")
                         return self.create_order(chosen_move)
                     else:
                         fallback_reason = f"LLM chose unavailable/invalid move '{move_name}'."
@@ -131,7 +143,7 @@ class LLMAgentBase(Player):
                         action_taken = True
                         chat_msg = f"AI Decision: Switching to '{chosen_switch.species}'."
                         print(chat_msg)
-                        write_last_action(chat_msg)
+                        self._record_battle_action(battle, f"switch:{chosen_switch.species}")
                         return self.create_order(chosen_switch)
                     else:
                         fallback_reason = f"LLM chose unavailable/invalid switch '{pokemon_name}'."
@@ -150,13 +162,12 @@ class LLMAgentBase(Player):
                       fallback_reason = "Unknown error processing LLM decision."
 
             print(f"Warning: {fallback_reason} Choosing random action.")
-            write_last_action(f"Fallback: {fallback_reason}")
+            self._record_battle_action(battle, f"fallback:{fallback_reason}")
 
             if battle.available_moves or battle.available_switches:
                  return self.choose_random_move(battle)
             else:
                  print("AI Fallback: No moves or switches available. Using Struggle/Default.")
-                 write_last_action("AI Fallback: No moves or switches available. Using Struggle/Default.")
                  return self.choose_default_move(battle)
 
     async def _get_llm_decision(self, battle_state: str) -> Dict[str, Any]:
@@ -188,33 +199,49 @@ class OpenAIAgent(LLMAgentBase):
         user_prompt = USER_PROMPT_TEMPLATE.format(battle_state=battle_state)
 
         try:
-            response = await self.openai_client.chat.completions.create(
+            response = await self.openai_client.responses.create(
                 model=self.model,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt},
+                input=[
+                    {
+                        "role": "system",
+                        "content": [
+                            {
+                                "type": "input_text",
+                                "text": system_prompt,
+                            }
+                        ],
+                    },
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "input_text",
+                                "text": user_prompt,
+                            }
+                        ],
+                    },
                 ],
                 tools=self.openai_tools,
                 tool_choice=GENERATION_CONFIG["tool_choice"],
                 temperature=GENERATION_CONFIG["temperature"],
             )
-            message = response.choices[0].message
-            print("OPENAI RESPONSE : ",response)
-            # Check for tool calls in the response
-            if message.tool_calls:
-                tool_call = message.tool_calls[0]  # Get the first tool call
-                function_name = tool_call.function.name
+
+            # print("OPENAI RESPONSE : ", response)
+
+            function_calls = [item for item in response.output if getattr(item, "type", None) == "function_call"]
+            if function_calls:
+                tool_call = function_calls[0]
+                function_name = tool_call.name
                 try:
-                    arguments = json.loads(tool_call.function.arguments or '{}')
+                    arguments = json.loads(tool_call.arguments or "{}")
                     if function_name in self.standard_tools:
                         return {"decision": {"name": function_name, "arguments": arguments}}
-                    else:
-                        return {"error": f"Model called unknown function '{function_name}'."}
+                    return {"error": f"Model called unknown function '{function_name}'."}
                 except json.JSONDecodeError:
-                    return {"error": f"Error decoding function arguments: {tool_call.function.arguments}"}
-            else:
-                # Model decided not to call a function
-                return {"error": f"OpenAI did not return a function call. Response: {message.content}"}
+                    return {"error": f"Error decoding function arguments: {tool_call.arguments}"}
+
+            output_text = getattr(response, "output_text", "")
+            return {"error": f"OpenAI did not return a function call. Response: {output_text}"}
 
         except APIError as e:
             print(f"Error during OpenAI API call: {e}")

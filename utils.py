@@ -1,3 +1,4 @@
+import json
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -85,7 +86,7 @@ class PokemonSettings:
     showdown_username: str | None = get_section_value(CONFIG, "showdown", "username")
     showdown_password: str | None = get_section_value(CONFIG, "showdown", "password")
     battle_format: str = get_section_value(CONFIG, "battle", "format", "gen9randombattle")
-    matchmaking_mode: str = get_section_value(CONFIG, "matchmaking", "mode", "ladder")
+    matchmaking_mode: str = get_section_value(CONFIG, "matchmaking", "mode", "accept")
     challenge_target_username: str | None = get_section_value(CONFIG, "matchmaking", "challenge_target_username")
     matches_per_activation: int = int(get_section_value(CONFIG, "matchmaking", "matches_per_activation", 1))
     openai_api_key: str | None = get_section_value(CONFIG, "openai", "api_key")
@@ -96,18 +97,44 @@ class PokemonSettings:
 POKEMON_SETTINGS = PokemonSettings()
 
 
-LAST_ACTION_PATH = Path(__file__).with_name("last_action.txt")
+LAST_ACTION_HISTORY_PATH = Path(__file__).with_name("battle_history.json")
 
 
-def write_last_action(message: str) -> None:
+def load_battle_history() -> list[dict[str, Any]]:
+    if not LAST_ACTION_HISTORY_PATH.exists():
+        return []
+
     try:
-        LAST_ACTION_PATH.write_text(message.strip() or "No actions recorded yet.", encoding="utf-8")
+        raw_content = LAST_ACTION_HISTORY_PATH.read_text(encoding="utf-8").strip()
+        if not raw_content:
+            return []
+        data = json.loads(raw_content)
+        if isinstance(data, list):
+            return data
     except Exception as exc:
-        print(f"WARN: Failed to write last action to '{LAST_ACTION_PATH}': {exc}")
+        print(f"WARN: Failed to read battle history from '{LAST_ACTION_HISTORY_PATH}': {exc}")
+
+    return []
 
 
-def ensure_last_action_file() -> None:
-    if LAST_ACTION_PATH.exists():
+def save_battle_history(history: list[dict[str, Any]]) -> None:
+    try:
+        LAST_ACTION_HISTORY_PATH.write_text(
+            json.dumps(history, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+    except Exception as exc:
+        print(f"WARN: Failed to write battle history to '{LAST_ACTION_HISTORY_PATH}': {exc}")
+
+
+def append_battle_history_record(record: dict[str, Any]) -> None:
+    history = load_battle_history()
+    history.append(record)
+    save_battle_history(history)
+
+
+def ensure_battle_history_file() -> None:
+    if LAST_ACTION_HISTORY_PATH.exists():
         return
 
-    write_last_action("No actions recorded yet.")
+    save_battle_history([])

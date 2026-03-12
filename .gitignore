@@ -1,2 +1,4 @@
 ﻿yaml/config.yaml
-
+__pycache__
+battle_history.json
+.gitignore
